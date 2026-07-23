@@ -1,0 +1,172 @@
+/*
+  Demo page chrome. The MorphCharts component itself stays free of this
+  decoration.
+*/
+
+html {
+  color: #0f0f0f;
+  background-color: white;
+}
+
+body {
+  font-family: "Lato", "Helvetica Neue", Arial, sans-serif;
+  margin: 0;
+}
+
+.demo-page {
+  --background-body: #f8f9fa;
+  --text-title: #36393b;
+  --text-main: #36393b;
+  --text-secondary: #6b6f72;
+  --primary-color: #1970b7;
+  --bg-image: url(./bg0-light.png);
+
+  min-height: 100vh;
+  padding: 24px 32px 24px 42px;
+  background-color: var(--background-body);
+  background-image: var(--bg-image);
+  background-repeat: repeat-y;
+  color: var(--text-main);
+  transition:
+    background-color 0.3s,
+    color 0.3s;
+}
+
+.demo-page[data-theme="dark"] {
+  --background-body: #202122;
+  --text-title: #ffffff;
+  --text-main: #ffffff;
+  --text-secondary: #cccccc;
+  --primary-color: #a5cff1;
+  --bg-image: url(./bg0-dark.png);
+}
+
+.demo-page[data-theme="omg"] {
+  --background-body: #0288d1;
+  --text-title: #ffffff;
+  --text-main: #ffffff;
+  --text-secondary: #cddcf6;
+  --primary-color: #ffb74d;
+  --bg-image: url(./spirals.png);
+}
+
+.demo-page[data-theme="omg"] {
+  background-repeat: repeat;
+}
+
+.demo-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+h1 {
+  font-size: 2.6em;
+  margin: 0 0 20px;
+  color: var(--text-title, #0f0f0f);
+}
+
+.demo-page[data-theme="dark"] {
+  h1,
+  h2,
+  h3 {
+    background: linear-gradient(white, #70ade6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+.demo-page[data-theme="omg"] {
+  h1,
+  h2,
+  h3 {
+    background: linear-gradient(white, var(--primary-color));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+.demo-subtitle {
+  color: var(--text-secondary, #666);
+  margin: 0 0 24px;
+  max-width: 46em;
+}
+
+.demo-log {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+  min-height: 20px;
+}
+
+.demo-docs {
+  max-width: 60em;
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid var(--text-secondary, #666);
+}
+
+.demo-docs h3 {
+  margin: 28px 0 8px;
+}
+
+.demo-docs h4 {
+  margin: 20px 0 4px;
+  color: var(--text-title, #0f0f0f);
+}
+
+.demo-docs p {
+  line-height: 1.55;
+}
+
+.demo-docs a {
+  color: var(--primary-color, #1970b7);
+}
+
+.demo-docs code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.9em;
+  background: rgba(127, 127, 127, 0.15);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+}
+
+.demo-docs pre {
+  background: rgba(127, 127, 127, 0.15);
+  border-radius: 6px;
+  padding: 12px 16px;
+  overflow-x: auto;
+}
+
+.demo-docs pre code {
+  background: none;
+  padding: 0;
+  white-space: pre;
+}
+
+.demo-docs-table {
+  overflow-x: auto;
+  margin: 8px 0 16px;
+}
+
+.demo-docs table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92em;
+}
+
+.demo-docs th,
+.demo-docs td {
+  text-align: left;
+  padding: 6px 10px;
+  border: 1px solid rgba(127, 127, 127, 0.3);
+  vertical-align: top;
+}
+
+.demo-docs th {
+  background: rgba(127, 127, 127, 0.15);
+}

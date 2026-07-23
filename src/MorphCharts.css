@@ -1,0 +1,329 @@
+/*
+  react-morph-charts
+  https://github.com/evoluteur/react-morph-charts
+  (c) 2026 Olivier Giulieri
+  Layout/transition algorithm ported from evoluteur-blog's topics page.
+*/
+
+.rmc,
+.rmc *,
+.rmc *::before,
+.rmc *::after {
+  box-sizing: border-box;
+}
+
+.rmc {
+  /* light theme (default) */
+  --rmc-bg: #f8f9fa;
+  --rmc-panel-bg: #ffffff;
+  --rmc-text: #36393b;
+  --rmc-text-secondary: #6b6f72;
+  --rmc-border: silver;
+  --rmc-primary: #1970b7;
+  --rmc-toggle-bg: #eef1f4;
+  --rmc-selection-color: var(--rmc-primary);
+
+  position: relative;
+  padding: 16px;
+  border-radius: 10px;
+  color: var(--rmc-text);
+  transition:
+    background-color 0.3s,
+    color 0.3s;
+}
+
+.rmc[data-theme="dark"] {
+  --rmc-bg: #202122;
+  --rmc-panel-bg: #2b2c2e;
+  --rmc-text: #ffffff;
+  --rmc-text-secondary: #cccccc;
+  --rmc-border: #45484c;
+  --rmc-primary: #a5cff1;
+  --rmc-toggle-bg: #313131;
+}
+
+/* Style borrowed from https://evoluteur.github.io/ */
+.rmc[data-theme="omg"] {
+  --rmc-bg: #0288d1;
+  --rmc-panel-bg: #1791d6;
+  --rmc-text: #ffffff;
+  --rmc-text-secondary: #cddcf6;
+  --rmc-border: #4ea3d0;
+  --rmc-primary: #a5cff1;
+  --rmc-toggle-bg: #1e8fce;
+  --rmc-selection-color: #a5cff1; /* same light blue as the dark theme's view toggle, instead of orange */
+}
+
+.rmc-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--rmc-text-secondary);
+}
+
+.rmc-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  margin-bottom: 20px;
+}
+
+.rmc-sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rmc-toolbar-label {
+  color: var(--rmc-text-secondary);
+}
+
+.rmc-toolbar button {
+  border: solid 1px var(--rmc-border);
+  background-color: var(--rmc-panel-bg);
+  color: var(--rmc-text);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color 0.3s,
+    border-color 0.3s,
+    color 0.3s;
+}
+
+.rmc-toolbar button[aria-pressed="true"] {
+  background-color: var(--rmc-toggle-bg);
+  font-weight: bold;
+  border-color: var(--rmc-primary);
+}
+
+.rmc-toolbar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Pill-style segmented control, matching the Bubbles/Bars/Pie toggle on
+   evoluteur-blog's topics page. Overrides the generic .rmc-toolbar button
+   styling above (same specificity, declared later). */
+.rmc-view-toggle {
+  display: flex;
+  gap: 0.4em;
+  border: 1px solid var(--rmc-text-secondary);
+  border-radius: 999px;
+  padding: 0.2em;
+}
+
+.rmc-view-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  border: none;
+  background: transparent;
+  color: var(--rmc-text-secondary);
+  border-radius: 999px;
+  padding: 0.35em 0.9em;
+  font-weight: 700;
+}
+
+.rmc-view-toggle button:hover:not(:disabled):not([aria-pressed="true"]) {
+  color: var(--rmc-selection-color);
+}
+
+.rmc-view-toggle button[aria-pressed="true"] {
+  background-color: var(--rmc-selection-color);
+  color: var(--rmc-bg);
+  border-color: transparent;
+}
+
+.rmc-sort-caret {
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+/* Matches evoluteur-blog's theme toggle: no pill background, icons in the
+   ambient text color, active vs. inactive shown by opacity alone. */
+.rmc-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 4px 10px;
+}
+
+.rmc-theme-toggle label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--rmc-text);
+  opacity: 0.5;
+  cursor: pointer;
+  transition: opacity 0.3s;
+}
+
+.rmc-theme-toggle label.rmc-theme-checked {
+  opacity: 1;
+}
+
+.rmc-theme-toggle label:focus-within {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--rmc-primary, #1970b7);
+}
+
+.rmc-theme-toggle input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.rmc-theme-toggle input:disabled {
+  cursor: not-allowed;
+}
+
+.rmc-viz {
+  position: relative;
+  contain: layout style;
+  margin-top: 8px;
+}
+
+.rmc-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: solid 2px transparent;
+  background-color: var(--rmc-accent, var(--rmc-text-secondary));
+  color: #fff;
+  text-align: center;
+  box-sizing: border-box;
+  overflow: hidden;
+  cursor: default;
+  contain: layout style paint;
+  transition: none;
+}
+
+.rmc-item[role="button"] {
+  cursor: pointer;
+}
+
+.rmc-item[role="button"]:focus-visible {
+  outline: 2px solid var(--rmc-primary);
+  outline-offset: 2px;
+}
+
+/* Transitions are held off until after the first layout pass, so the
+   initial mount doesn't animate in from the top-left corner. */
+.rmc--ready .rmc-item {
+  transition:
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    clip-path 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.3s ease,
+    background-color 0.3s ease;
+}
+
+.rmc-viz:not([data-view="pie"]) .rmc-item--active {
+  border-color: #000;
+}
+
+.rmc[data-theme="dark"] .rmc-viz:not([data-view="pie"]) .rmc-item--active {
+  border-color: #fff;
+}
+
+/* Bubbles are square boxes turned circular via clip-path; the box itself
+   needs a matching circular radius too, otherwise the border only shows
+   along the flat edges instead of tracing the visible circle. */
+.rmc-viz[data-view="bubbles"] .rmc-item {
+  border-radius: 50%;
+}
+
+.rmc-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: none;
+}
+
+.rmc--ready .rmc-label {
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.rmc-name {
+  font-weight: 700;
+  line-height: 1.2;
+  color: #fff;
+}
+
+.rmc-viz[data-view="bubbles"] .rmc-name {
+  font-size: 1.1em;
+}
+
+.rmc-viz[data-view="bars"] .rmc-name,
+.rmc-viz[data-view="pie"] .rmc-name {
+  font-size: 0.7em;
+  font-weight: 400;
+}
+
+.rmc-viz[data-view="bars"] .rmc-name {
+  font-size: 0.8em;
+}
+
+/* Outline the text in the item's accent color instead of boxing it in, so
+   the selected item's label stays readable without needing a background —
+   its border loses its own accent tint once active (see above). */
+.rmc-item--active .rmc-name-text,
+.rmc-item--active .rmc-value,
+.rmc-item--active .rmc-sublabel {
+  text-shadow:
+    0 0 6px var(--rmc-accent),
+    1px 1px 0 var(--rmc-accent),
+    -1px 1px 0 var(--rmc-accent),
+    1px -1px 0 var(--rmc-accent),
+    -1px -1px 0 var(--rmc-accent);
+}
+
+.rmc-value,
+.rmc-sublabel {
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+
+.rmc-viz[data-view="bubbles"] .rmc-value,
+.rmc-viz[data-view="bubbles"] .rmc-sublabel {
+  font-size: 0.95em;
+}
+
+.rmc-viz[data-view="bars"] .rmc-value,
+.rmc-viz[data-view="bars"] .rmc-sublabel,
+.rmc-viz[data-view="pie"] .rmc-value,
+.rmc-viz[data-view="pie"] .rmc-sublabel {
+  font-size: 0.65em;
+}
+
+.rmc-viz[data-view="bars"] .rmc-value,
+.rmc-viz[data-view="bars"] .rmc-sublabel {
+  font-size: 0.75em;
+}
+
+.rmc--disabled {
+  opacity: 0.6;
+}
+
+.rmc--disabled .rmc-item {
+  cursor: default;
+}
