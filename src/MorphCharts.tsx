@@ -5,6 +5,7 @@ import type {
   CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
+  ReactElement,
 } from "react";
 import "./MorphCharts.css";
 import ThemeToggle, { useThemeState } from "./ThemeToggle";
@@ -19,12 +20,13 @@ import {
   DEFAULT_PIE_MAX_RADIUS,
   DEFAULT_VALUE_SCALE,
   clipPathFor,
+  fitBubbles,
   itemKey,
   layoutBars,
-  layoutBubbles,
   layoutPie,
   pieCenterOffset,
   restTransform,
+  simulateBubbles,
 } from "./utils";
 import type {
   ChartItem,
@@ -43,9 +45,15 @@ type CustomCSSProperties = CSSProperties & Record<`--${string}`, string>;
 
 type SortField = "label" | "value";
 
+// useLayoutEffect warns during SSR; fall back to useEffect on the server.
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+const collator = new Intl.Collator(undefined, { sensitivity: "base" });
+
 // Same icon set (mdi:chart-bubble/chart-bar/chart-pie) as the view toggle
 // on evoluteur-blog's topics page.
-const VIEW_ICONS: Record<ChartView, JSX.Element> = {
+const VIEW_ICONS: Record<ChartView, ReactElement> = {
   bubbles: (
     <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
       <path d="M7.2,11.2C8.97,11.2 10.4,12.63 10.4,14.4C10.4,16.17 8.97,17.6 7.2,17.6C5.43,17.6 4,16.17 4,14.4C4,12.63 5.43,11.2 7.2,11.2M14.8,16A2,2 0 0,1 16.8,18A2,2 0 0,1 14.8,20A2,2 0 0,1 12.8,18A2,2 0 0,1 14.8,16M15.2,4A4.8,4.8 0 0,1 20,8.8C20,11.45 17.85,13.6 15.2,13.6A4.8,4.8 0 0,1 10.4,8.8C10.4,6.15 12.55,4 15.2,4Z" />
@@ -160,7 +168,7 @@ export default function MorphCharts({
     if (sortField === "value") {
       copy.sort((a, b) => sortDirection * (a.value - b.value));
     } else {
-      copy.sort((a, b) => sortDirection * a.label.localeCompare(b.label));
+      copy.sort((a, b) => sortDirection * collator.compare(a.label, b.label));
     }
     return copy;
   }, [data, sortField, sortDirection]);
@@ -170,11 +178,29 @@ export default function MorphCharts({
   const labelElsRef = useRef<Map<ItemKey, HTMLDivElement>>(new Map());
   const lastPosRef = useRef<Map<ItemKey, Placement>>(new Map());
   const layoutRef = useRef<() => void>(() => {});
+  const lastWidthRef = useRef<number | null>(null);
+
+  const entries = useMemo<Entry[]>(
+    () => sortedData.map((item) => ({ key: itemKey(item), value: item.value })),
+    [sortedData],
+  );
+
+  // The bubble relaxation is O(iterations × n²) and doesn't depend on the
+  // container width, so compute it once per data/option change instead of
+  // on every resize. Only computed while the bubbles view is shown.
+  const bubbleCluster = useMemo(
+    () =>
+      currentView === "bubbles"
+        ? simulateBubbles(entries, { minSize, valueScale, gap })
+        : null,
+    [entries, currentView, minSize, valueScale, gap],
+  );
 
   function runLayout() {
     const viz = vizRef.current;
     if (!viz) return;
     const width = viz.clientWidth;
+    lastWidthRef.current = width;
     const opts: LayoutOptions = {
       minSize,
       barMinHeight,
@@ -184,16 +210,13 @@ export default function MorphCharts({
       barMaxWidth,
       pieMaxRadius,
     };
-    const entries: Entry[] = sortedData.map((item) => ({
-      key: itemKey(item),
-      value: item.value,
-    }));
-
     let result: LayoutResult;
     if (currentView === "bars") result = layoutBars(width, entries, opts);
     else if (currentView === "pie") result = layoutPie(width, entries, opts);
-    else result = layoutBubbles(width, entries, opts);
+    else result = fitBubbles(width, bubbleCluster ?? []);
 
+    // Start fresh so removed items don't linger in the position cache.
+    lastPosRef.current = new Map();
     let maxBottom = 0;
     entries.forEach((entry) => {
       const p = result.positions.get(entry.key);
@@ -231,11 +254,12 @@ export default function MorphCharts({
 
   layoutRef.current = runLayout;
 
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     runLayout();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    sortedData,
+    entries,
+    bubbleCluster,
     currentView,
     minSize,
     barMinHeight,
@@ -249,7 +273,12 @@ export default function MorphCharts({
   useEffect(() => {
     const viz = vizRef.current;
     if (!viz) return undefined;
-    const observer = new ResizeObserver(() => layoutRef.current());
+    if (typeof ResizeObserver === "undefined") return undefined;
+    // Only re-layout when the width changes: runLayout sets the height
+    // itself, which would otherwise trigger a second, redundant pass.
+    const observer = new ResizeObserver(() => {
+      if (viz.clientWidth !== lastWidthRef.current) layoutRef.current();
+    });
     observer.observe(viz);
     return () => observer.disconnect();
   }, []);
@@ -428,6 +457,8 @@ export default function MorphCharts({
               style={{ "--rmc-accent": color } as CustomCSSProperties}
               onMouseEnter={() => handleEnter(key)}
               onMouseLeave={() => handleLeave(key)}
+              onFocus={() => handleEnter(key)}
+              onBlur={() => handleLeave(key)}
               onClick={(event) => handleItemClick(item, event)}
               onKeyDown={(event) => handleItemKeyDown(item, event)}
               role={canClickItems ? "button" : undefined}

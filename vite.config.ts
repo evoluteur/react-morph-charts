@@ -29,6 +29,9 @@ export default defineConfig(({ command }) => {
         external: ["react", "react-dom", "react/jsx-runtime"],
         output: {
           exports: "named",
+          // Rollup strips module-level "use client" directives, so re-add
+          // it to the bundle for Next.js App Router consumers.
+          banner: '"use client";',
           globals: {
             react: "React",
             "react-dom": "ReactDOM",

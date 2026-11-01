@@ -74,16 +74,22 @@ export interface LayoutResult {
 // of iterations, pulling everything toward the center and pushing
 // overlapping circles apart (bigger circles yield less, so they settle
 // near the middle while smaller ones fill the gaps around them).
-export function layoutBubbles(
-  width: number,
-  entries: Entry[],
-  opts: LayoutOptions,
-): LayoutResult {
-  const positions = new Map<ItemKey, Placement>();
+//
+// The relaxation doesn't depend on the container width (width only sets
+// the final scale/offset), so it's split out to be cached across resizes.
+export interface BubbleCircle {
+  key: ItemKey;
+  r: number;
+  x: number;
+  y: number;
+}
 
-  type Circle = { key: ItemKey; r: number; x: number; y: number };
-  const circles: Circle[] = entries.map((entry, i) => {
-    const d = opts.minSize + entry.value * opts.valueScale;
+export function simulateBubbles(
+  entries: Entry[],
+  opts: Pick<LayoutOptions, "minSize" | "valueScale" | "gap">,
+): BubbleCircle[] {
+  const circles: BubbleCircle[] = entries.map((entry, i) => {
+    const d = Math.max(opts.minSize + Math.max(entry.value, 0) * opts.valueScale, 1);
     const angle = i * 2.4;
     const spread = 4 * Math.sqrt(i);
     return {
@@ -94,7 +100,7 @@ export function layoutBubbles(
     };
   });
 
-  if (circles.length === 0) return { positions, height: 0 };
+  if (circles.length === 0) return circles;
 
   for (let iter = 0; iter < CLUSTER_ITERATIONS; iter++) {
     circles.forEach((c) => {
@@ -125,6 +131,13 @@ export function layoutBubbles(
     }
   }
 
+  return circles;
+}
+
+export function fitBubbles(width: number, circles: BubbleCircle[]): LayoutResult {
+  const positions = new Map<ItemKey, Placement>();
+  if (circles.length === 0) return { positions, height: 0 };
+
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;
@@ -151,6 +164,14 @@ export function layoutBubbles(
   return { positions, height: (maxY - minY) * scale };
 }
 
+export function layoutBubbles(
+  width: number,
+  entries: Entry[],
+  opts: LayoutOptions,
+): LayoutResult {
+  return fitBubbles(width, simulateBubbles(entries, opts));
+}
+
 export function layoutBars(
   width: number,
   entries: Entry[],
@@ -166,7 +187,7 @@ export function layoutBars(
   const offsetX = Math.max((width - totalWidth) / 2, 0);
 
   const heights = entries.map(
-    (e) => opts.barMinHeight + e.value * opts.valueScale,
+    (e) => opts.barMinHeight + Math.max(e.value, 0) * opts.valueScale,
   );
   const maxHeight = Math.max(...heights, opts.barMinHeight);
 
@@ -189,7 +210,8 @@ export function layoutPie(
   opts: LayoutOptions,
 ): LayoutResult {
   const positions = new Map<ItemKey, Placement>();
-  const total = entries.reduce((sum, e) => sum + e.value, 0) || 1;
+  // Negative values can't be drawn as slices; treat them as 0.
+  const total = entries.reduce((sum, e) => sum + Math.max(e.value, 0), 0) || 1;
   const R = Math.max(Math.min(opts.pieMaxRadius, width / 2 - 10), 60);
   const diameter = R * 2;
   const centerX = width / 2;
@@ -197,7 +219,7 @@ export function layoutPie(
 
   let angle = 0;
   entries.forEach((entry) => {
-    const sweep = (entry.value / total) * 360;
+    const sweep = (Math.max(entry.value, 0) / total) * 360;
     positions.set(entry.key, {
       x: centerX - R,
       y: centerY - R,
