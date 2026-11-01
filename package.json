@@ -1,6 +1,6 @@
 {
   "name": "react-morph-charts",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A reusable React/TypeScript component that displays data as a bubble, bar, or pie chart, with animated morphing transitions between views.",
   "type": "module",
   "main": "./dist/react-morph-charts.cjs",
